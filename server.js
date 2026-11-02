@@ -4,9 +4,7 @@ import express from 'express';
 const app = express();
 const PORT = 3000;
 
-
 app.use(express.json());
-
 
 let books = [
     {
@@ -34,10 +32,10 @@ let books = [
         available: 3
     }
 ];
+
 function findBook(id) {
     return books.find(book => book.id === id);
 }
-
 
 function getValidId(value) {
     const id = Number(value);
@@ -48,13 +46,7 @@ function isValidQuantity(value) {
     return Number.isInteger(value) && value >= 0;
 }
 
-
-
-// TASK 1: ADD A NEW BOOK
-
-
 app.post('/api/books', (req, res) => {
-
     const { id, title, author, category, quantity } = req.body;
     const available = req.body.available ?? quantity;
 
@@ -64,22 +56,26 @@ app.post('/api/books', (req, res) => {
         });
     }
 
-    if (!title || !author || !category) {
+    if (
+        typeof title !== 'string' || !title.trim() ||
+        typeof author !== 'string' || !author.trim() ||
+        typeof category !== 'string' || !category.trim()
+    ) {
         return res.status(400).json({
-            message: "Title, author and category are required"
+            message: "Valid title, author and category are required"
         });
     }
 
-    if (!isValidQuantity(quantity) ||
+    if (
+        !isValidQuantity(quantity) ||
         !isValidQuantity(available) ||
-        available > quantity) {
-
+        available > quantity
+    ) {
         return res.status(400).json({
             message: "Invalid quantity or available copies"
         });
     }
 
-    // Check whether ID already exists
     if (findBook(id)) {
         return res.status(409).json({
             message: "Book with this ID already exists"
@@ -88,9 +84,9 @@ app.post('/api/books', (req, res) => {
 
     const newBook = {
         id,
-        title,
-        author,
-        category,
+        title: title.trim(),
+        author: author.trim(),
+        category: category.trim(),
         quantity,
         available
     };
@@ -103,52 +99,53 @@ app.post('/api/books', (req, res) => {
     });
 });
 
-
-
-//TASK 2: VIEW ALL BOOKS
-
-
 app.get('/api/books', (req, res) => {
-
     res.status(200).json({
         totalBooks: books.length,
-        books: books
+        books
     });
 });
 
+app.get('/api/books/search', (req, res) => {
+    const q = String(req.query.q || '').trim().toLowerCase();
+    const title = String(req.query.title || '').trim().toLowerCase();
+    const author = String(req.query.author || '').trim().toLowerCase();
+    const category = String(req.query.category || '').trim().toLowerCase();
 
-
-// TASK 3
-
-
-app.get('/api/books/:id', (req, res) => {
-
-    const id = getValidId(req.params.id);
-
-    if (id === null) {
+    if (!q && !title && !author && !category) {
         return res.status(400).json({
-            message: "Invalid book ID"
+            message: "Enter a search query"
         });
     }
 
-    const book = findBook(id);
+    const result = books.filter(book => {
+        const matchesQuery = !q ||
+            book.title.toLowerCase().includes(q) ||
+            book.author.toLowerCase().includes(q) ||
+            book.category.toLowerCase().includes(q);
 
-    if (!book) {
-        return res.status(404).json({
-            message: "Book not found"
-        });
-    }
+        const matchesTitle = !title ||
+            book.title.toLowerCase().includes(title);
 
-    res.json(book);
+        const matchesAuthor = !author ||
+            book.author.toLowerCase().includes(author);
+
+        const matchesCategory = !category ||
+            book.category.toLowerCase().includes(category);
+
+        return matchesQuery &&
+            matchesTitle &&
+            matchesAuthor &&
+            matchesCategory;
+    });
+
+    res.status(200).json({
+        totalResults: result.length,
+        books: result
+    });
 });
 
-
-// TASK 4: 
-
-
-app.put('/api/books/:id', (req, res) => {
-
-    // Find book using ID from URL
+app.get('/api/books/:id', (req, res) => {
     const id = getValidId(req.params.id);
 
     if (id === null) {
@@ -165,25 +162,43 @@ app.put('/api/books/:id', (req, res) => {
         });
     }
 
-    const { title, author, category, quantity } = req.body;
+    res.status(200).json(book);
+});
 
-    // Do not allow book ID to change
-    if (req.body.id !== undefined &&
-        Number(req.body.id) !== book.id) {
+app.put('/api/books/:id', (req, res) => {
+    const id = getValidId(req.params.id);
 
+    if (id === null) {
+        return res.status(400).json({
+            message: "Invalid book ID"
+        });
+    }
+
+    const book = findBook(id);
+
+    if (!book) {
+        return res.status(404).json({
+            message: "Book not found"
+        });
+    }
+
+    if (
+        req.body.id !== undefined &&
+        Number(req.body.id) !== book.id
+    ) {
         return res.status(400).json({
             message: "Book ID cannot be changed"
         });
     }
 
-    // Available copies are managed through issue/return
     if (req.body.available !== undefined) {
         return res.status(400).json({
             message: "Use issue or return endpoints to change available copies"
         });
     }
 
-    // Check whether at least one detail is provided
+    const { title, author, category, quantity } = req.body;
+
     const fields = ['title', 'author', 'category', 'quantity'];
 
     if (!fields.some(field => req.body[field] !== undefined)) {
@@ -192,12 +207,12 @@ app.put('/api/books/:id', (req, res) => {
         });
     }
 
-    // Validate text fields
     for (const field of ['title', 'author', 'category']) {
         if (req.body[field] !== undefined) {
-            if (typeof req.body[field] !== 'string' ||
-                !req.body[field].trim()) {
-
+            if (
+                typeof req.body[field] !== 'string' ||
+                !req.body[field].trim()
+            ) {
                 return res.status(400).json({
                     message: `Invalid ${field}`
                 });
@@ -205,14 +220,13 @@ app.put('/api/books/:id', (req, res) => {
         }
     }
 
-    // Preserve the number of already-issued copies
     const issuedCopies = book.quantity - book.available;
 
     if (quantity !== undefined) {
-
-        if (!isValidQuantity(quantity) ||
-            quantity < issuedCopies) {
-
+        if (
+            !isValidQuantity(quantity) ||
+            quantity < issuedCopies
+        ) {
             return res.status(400).json({
                 message: "Quantity cannot be less than issued copies"
             });
@@ -222,22 +236,129 @@ app.put('/api/books/:id', (req, res) => {
         book.available = quantity - issuedCopies;
     }
 
-    // Update other details
     if (title !== undefined) book.title = title.trim();
     if (author !== undefined) book.author = author.trim();
     if (category !== undefined) book.category = category.trim();
 
-    res.json({
+    res.status(200).json({
         message: "Book updated successfully",
-        book: book
+        book
     });
 });
 
+app.delete('/api/books/:id', (req, res) => {
+    const id = getValidId(req.params.id);
 
+    if (id === null) {
+        return res.status(400).json({
+            message: "Invalid book ID"
+        });
+    }
 
+    const book = findBook(id);
 
+    if (!book) {
+        return res.status(404).json({
+            message: "Book not found"
+        });
+    }
 
+    if (book.available < book.quantity) {
+        return res.status(409).json({
+            message: "Cannot delete book while copies are issued"
+        });
+    }
 
+    books = books.filter(book => book.id !== id);
+
+    res.status(200).json({
+        message: "Book deleted successfully"
+    });
+});
+
+app.post('/api/books/:id/issue', (req, res) => {
+    const id = getValidId(req.params.id);
+
+    if (id === null) {
+        return res.status(400).json({
+            message: "Invalid book ID"
+        });
+    }
+
+    const book = findBook(id);
+
+    if (!book) {
+        return res.status(404).json({
+            message: "Book not found"
+        });
+    }
+
+    const copies = req.body.copies ?? 1;
+
+    if (!Number.isInteger(copies) || copies <= 0) {
+        return res.status(400).json({
+            message: "Copies must be a positive integer"
+        });
+    }
+
+    if (book.available < copies) {
+        return res.status(400).json({
+            message: "Not enough copies available",
+            available: book.available
+        });
+    }
+
+    book.available -= copies;
+
+    res.status(200).json({
+        message: "Book issued successfully",
+        issuedCopies: copies,
+        book
+    });
+});
+
+app.post('/api/books/:id/return', (req, res) => {
+    const id = getValidId(req.params.id);
+
+    if (id === null) {
+        return res.status(400).json({
+            message: "Invalid book ID"
+        });
+    }
+
+    const book = findBook(id);
+
+    if (!book) {
+        return res.status(404).json({
+            message: "Book not found"
+        });
+    }
+
+    const copies = req.body.copies ?? 1;
+
+    if (!Number.isInteger(copies) || copies <= 0) {
+        return res.status(400).json({
+            message: "Copies must be a positive integer"
+        });
+    }
+
+    const issuedCopies = book.quantity - book.available;
+
+    if (copies > issuedCopies) {
+        return res.status(400).json({
+            message: "Cannot return more copies than issued",
+            issuedCopies
+        });
+    }
+
+    book.available += copies;
+
+    res.status(200).json({
+        message: "Book returned successfully",
+        returnedCopies: copies,
+        book
+    });
+});
 
 app.listen(PORT, () => {
     console.log(`Library server running at http://localhost:${PORT}`);
