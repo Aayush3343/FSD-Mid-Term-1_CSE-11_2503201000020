@@ -1,0 +1,25 @@
+{
+  "name": "fsd-mid-term-1_cse-11_2503201000020",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aayush3343/FSD-Mid-Term-1_CSE-11_2503201000020.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Aayush3343/FSD-Mid-Term-1_CSE-11_2503201000020/issues"
+  },
+  "homepage": "https://github.com/Aayush3343/FSD-Mid-Term-1_CSE-11_2503201000020#readme",
+  "dependencies": {
+    "express": "^5.3.0"
+  }
+}
